@@ -1,0 +1,1282 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MR.BIBERÓN FINAL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos personalizados y tipografía */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background: #0d0124; 
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Contenedor del juego - la "franja" */
+        #game-container {
+            position: relative;
+            width: 95%; /* Más ancho en móviles */
+            max-width: 600px;
+            height: 90vh; /* Usa más altura */
+            max-height: 800px;
+            background: linear-gradient(180deg, rgba(29, 0, 78, 0.8) 0%, rgba(13, 1, 36, 0.8) 100%);
+            border: 4px solid #3b82f6; 
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.5);
+            overflow: hidden;
+            border-radius: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Protagonista: POSICIONAMIENTO SIMPLIFICADO */
+        #player {
+            position: absolute;
+            bottom: 5%; 
+            width: 80px; 
+            height: 80px;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: none;
+        }
+
+        /* ELEMENTO VISUAL DEL PROTAGONISTA (IMAGEN EXTERNA) */
+        #player-head {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #player-head img {
+            width: 70px; 
+            height: 70px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 4px #facc15);
+            background-color: transparent; 
+        }
+
+        /* Estilos de las entidades (cayendo de arriba) */
+        .entity {
+            position: absolute;
+            font-size: 2.5rem;
+            top: 0; 
+            left: 0; 
+            transform: translate(-50%, 0) translateZ(0); 
+            pointer-events: none; 
+        }
+        
+        /* Overlay de Inicio / Fin del Juego (Todas las pantallas de menú) */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 15;
+            border-radius: 1rem;
+            text-align: center;
+            padding: 1rem;
+            
+            /* Efecto Glitch/Falla */
+            border: 4px solid #ff00ff; 
+            box-shadow: 0 0 10px #00ffff, 0 0 20px #ff00ff; 
+        }
+        
+        /* Estilo para los textos en Overlays */
+        .overlay h1, .overlay h2, .overlay p, .final-score-text, .high-score-title {
+            text-shadow: 4px 4px #000000, 6px 6px #ff00ff; 
+            letter-spacing: 2px;
+        }
+
+        /* Estilos de la lista de High Scores */
+        #high-scores-list {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #00ffff;
+            border-radius: 0.5rem;
+            max-width: 90%;
+            width: 300px;
+        }
+
+        /* Estilo de los botones del juego */
+        .game-button {
+            background-color: #facc15; 
+            color: #1f2937; 
+            font-weight: bold;
+            text-transform: uppercase;
+            box-shadow: 4px 4px #1f2937;
+            border: 2px solid #1f2937;
+            transition: all 0.1s;
+        }
+        .game-button:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px #1f2937;
+        }
+
+        /* ------------------------------------------------ */
+        /* GESTIÓN DE PANTALLAS (Views) */
+        /* ------------------------------------------------ */
+
+        #menu-wrapper > div {
+            width: 100%;
+            height: 100%;
+            position: absolute; 
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            transition: opacity 0.3s;
+        }
+        
+        /* Ocultar las vistas por defecto. JS maneja cuál es visible. */
+        #game-over-content.hidden, 
+        #high-scores-view.hidden, 
+        #character-select-view.hidden,
+        #start-content.hidden {
+            display: none; 
+            opacity: 0;
+            pointer-events: none; 
+        }
+        
+        /* Estilos del selector de personajes - PANTALLA 2 */
+        #character-select-view {
+             /* Alineación más arriba */
+             justify-content: flex-start; 
+             padding-top: 10vh;
+        }
+        
+        /* Contenedor del Botón A COMERLA! en Pantalla 2 */
+        #start-game-button {
+            margin-top: 3rem; 
+            margin-bottom: 0.5rem;
+        }
+
+        #character-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Cuadrícula 2x2 */
+            gap: 1.5rem;
+            padding: 1rem;
+            width: 100%; 
+            max-width: 350px; /* Tamaño máximo para la cuadrícula */
+            margin-bottom: 1.5rem;
+        }
+        
+        .character-card {
+            border: 3px solid #3b82f6;
+            background-color: rgba(13, 1, 36, 0.7);
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            min-height: 150px;
+        }
+        .character-card.selected {
+            border-color: #facc15; 
+            box-shadow: 0 0 20px #facc15, 0 0 5px #ffffff;
+            transform: scale(1.05);
+        }
+        .character-card img {
+             width: 100%;
+             height: auto;
+             max-height: 70px; /* Ajuste del tamaño de la imagen dentro de la cuadrícula */
+             object-fit: contain;
+             background-color: transparent; 
+        }
+
+        /* Media queries para móviles */
+        @media (max-width: 640px) {
+            #game-container {
+                width: 100%;
+                height: 100vh;
+                max-width: none;
+                max-height: none;
+            }
+            .overlay h1 { font-size: 3rem; }
+            #character-select-view {
+                 padding-top: 5vh;
+            }
+            #character-list {
+                grid-template-columns: 1fr 1fr;
+                gap: 1rem;
+                max-width: 300px;
+            }
+            .character-card {
+                padding: 0.75rem;
+                min-height: 120px;
+            }
+        }
+        
+        /* Estilos del mensaje emergente */
+        #message-overlay {
+            position: absolute;
+            top: 10%; 
+            left: 50%;
+            transform: translate(-50%, 0); 
+            z-index: 20;
+            pointer-events: none;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+
+        .message-text {
+            padding: 0.5rem 1.5rem;
+            border-radius: 1rem;
+            text-shadow: 2px 2px 4px #000000;
+            font-weight: bold;
+        }
+
+        .mamadera-text {
+            background-color: rgba(59, 130, 246, 0.9); 
+            color: #ffffff;
+            font-size: 1.5rem;
+        }
+
+        .no-vale-nada-text {
+            background-color: rgba(234, 179, 8, 0.9); 
+            color: #1f2937;
+            font-size: 2rem;
+            animation: pulse 1s infinite alternate;
+        }
+        
+        .no-vale-nada-active {
+            filter: brightness(1.2) hue-rotate(-20deg);
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); box-shadow: 0 0 30px #facc15; }
+            to { transform: scale(1.05); box-shadow: 0 0 50px #facc15; }
+        }
+
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            z-index: 0;
+        }
+
+        .stars::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 1px, transparent 1px);
+            background-size: 150px 150px;
+            opacity: 0.1;
+            animation: star-scroll 100s linear infinite;
+        }
+
+        @keyframes star-scroll {
+            from { background-position: 0 0; }
+            to { background-position: -15000px 0; }
+        }
+        
+        /* Estilos de la lista de High Scores */
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            padding: 5px 0;
+        }
+        .score-item .name {
+            color: #ff00ff;
+            max-width: 140px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 5px;
+            text-align: left;
+            flex-grow: 1;
+        }
+        .score-item .value {
+            color: #facc15;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        .score-item:nth-child(1) { background-color: rgba(255, 215, 0, 0.1); border-left: 5px solid gold; }
+        .score-item:nth-child(2) { background-color: rgba(192, 192, 192, 0.1); border-left: 5px solid silver; }
+        .score-item:nth-child(3) { background-color: rgba(205, 127, 50, 0.1); border-left: 5px solid #CD7F32; }
+
+        #lives-display.animate-pulse {
+            animation: flash-red 0.5s infinite alternate;
+        }
+        @keyframes flash-red {
+            from { color: #facc15; }
+            to { color: #f87171; text-shadow: 0 0 5px #f87171; }
+        }
+        #game-over-content .text-red-500 {
+            color: #ff00ff;
+            text-shadow: 4px 4px #000000, 2px 2px #00ffff;
+        }
+        #explanation-text {
+            font-style: italic;
+            color: #fef08a;
+            margin-top: 0.5rem;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+            text-shadow: 2px 2px #000000;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Fondo de estrellas -->
+        <div class="stars"></div>
+
+        <!-- Área de Puntuación (Visible SOLO en Pantalla 3 - Juego) -->
+        <div id="score-bar" class="z-10 p-4 w-full flex justify-between items-center text-lg bg-gray-900 bg-opacity-50 hidden">
+            <span id="lives-display" class="font-bold text-red-400">📦📦📦</span> 
+            <span>Puntuación: <span id="score-display" class="font-bold text-yellow-400">0</span></span>
+            <span>Racha: <span id="streak-display" class="font-bold text-green-400">0</span></span>
+        </div>
+
+        <!-- Protagonista (Solo visible en Pantalla 3) -->
+        <div id="player" class="hidden">
+            <span id="player-head">
+                <img id="player-img" 
+                     src="https://i.postimg.cc/J0LybTSX/1760534855484.png" 
+                     alt="Protagonista Cutre"
+                     onerror="this.style.display='none'; this.parentNode.textContent='👾'; this.parentNode.style.fontSize='3.5rem';">
+            </span>
+        </div>
+
+        <!-- Overlay de Mensajes (Solo visible en Pantalla 3) -->
+        <div id="message-overlay">
+            <span id="message-text" class="message-text"></span>
+        </div>
+
+        <!-- Contenedor ÚNICO de Menús (PANTALLAS 1, 2, 4, CLASIFICACIONES) -->
+        <!-- Se oculta completamente cuando el juego está activo (Pantalla 3) -->
+        <div id="start-overlay" class="overlay">
+            
+            <div id="menu-wrapper" class="relative flex flex-col items-center w-full h-full justify-center">
+
+                <!-- PANTALLA 1: MENÚ PRINCIPAL -->
+                <div id="start-content" class="flex flex-col items-center">
+                    <h1 class="text-5xl mb-4 font-bold text-blue-400">MR. BIBERÓN</h1>
+                    <p class="text-xl mb-8">¡No te regales, BICHITO de LUZ!!</p>
+                    
+                    <div id="loading-firebase" class="text-white text-lg mb-4">Cargando puntuaciones...</div>
+
+                    <!-- Botón Principal: JUGAR (Lleva al Selector) -->
+                    <button id="new-game-button" class="game-button px-8 py-4 text-2xl rounded-lg mt-4 w-64">
+                        JUGAR
+                    </button>
+                    <!-- Botón Secundario: CLASIFICACIONES -->
+                    <button id="view-scores-button" class="game-button px-6 py-2 text-md rounded-lg mt-4 bg-purple-600 hover:bg-purple-700 w-64">
+                        🏆 CLASIFICACIONES
+                    </button>
+                    <p id="user-id-display" class="mt-4 text-xs text-gray-500">ID Usuario: Cargando...</p>
+                </div>
+
+                <!-- PANTALLA DE CLASIFICACIONES (Top 5) -->
+                <div id="high-scores-view" class="hidden flex flex-col items-center">
+                    <h2 class="high-score-title text-3xl mt-4 mb-4 text-cyan-400">TOP 5 GUARDIANES</h2>
+                    <div id="high-scores-list">
+                        <!-- Scores se inyectarán aquí -->
+                    </div>
+                    <button id="back-scores-button" class="game-button px-6 py-2 text-lg rounded-lg mt-8 bg-blue-600 hover:bg-blue-700">
+                        Volver al Menú
+                    </button>
+                </div>
+
+                <!-- PANTALLA 2: SELECTOR DE PERSONAJES -->
+                <div id="character-select-view" class="hidden flex flex-col items-center p-4 h-full w-full justify-start">
+                    <h2 class="high-score-title text-3xl mt-4 mb-10 text-yellow-400">ELIJE TU GUARDÍAN</h2>
+                    
+                    <!-- Cuadrícula 2x2 de Personajes -->
+                    <div id="character-list">
+                        
+                        <!-- Tarjeta 1: Mr. Biberón Original (por defecto) -->
+                        <div id="char-original" 
+                             class="character-card flex flex-col items-center p-2 rounded-lg selected" 
+                             data-url="https://i.postimg.cc/J0LybTSX/1760534855484.png"
+                             data-name="Mr. Biberón">
+                            <img src="https://i.postimg.cc/J0LybTSX/1760534855484.png" alt="Mr. Biberón">
+                            <span class="mt-2 font-bold text-md">Mr. Biberón</span>
+                            <span class="text-xs text-gray-400">(Cardiólogo)</span>
+                        </div>
+                        
+                        <!-- Tarjeta 2: Mamila -->
+                        <div id="char-mamila" 
+                             class="character-card flex flex-col items-center p-2 rounded-lg" 
+                             data-url="https://i.postimg.cc/YqNSNHYx/mamila.png"
+                             data-name="Mamila">
+                            <img src="https://i.postimg.cc/YqNSNHYx/mamila.png" alt="Mamila">
+                            <span class="mt-2 font-bold text-md">Mamila</span>
+                            <span class="text-xs text-yellow-300">(15 min tarde)</span>
+                        </div>
+
+                        <!-- Tarjeta 3: Chupete -->
+                        <div id="char-chupete" 
+                             class="character-card flex flex-col items-center p-2 rounded-lg" 
+                             data-url="https://i.postimg.cc/nhTJdVdX/Chupete.png"
+                             data-name="Chupete">
+                            <img src="https://i.postimg.cc/nhTJdVdX/Chupete.png" alt="Chupete">
+                            <span class="mt-2 font-bold text-md">Chupete</span>
+                            <span class="text-xs text-blue-300">(Bronceado tostado)</span>
+                        </div>
+
+                        <!-- Tarjeta 4: Chupetón -->
+                        <div id="char-chupeton" 
+                             class="character-card flex flex-col items-center p-2 rounded-lg" 
+                             data-url="https://i.postimg.cc/q7RdWfYZ/Chupeton.png"
+                             data-name="Chupetón">
+                            <img src="https://i.postimg.cc/q7RdWfYZ/Chupeton.png" alt="Chupetón">
+                            <span class="mt-2 font-bold text-md">Chupetón</span>
+                            <span class="text-xs text-red-300">(Mandíbula loca)</span>
+                        </div>
+
+                    </div>
+                    
+                    <p id="selected-char-name" class="mt-4 text-xl text-cyan-400 font-bold">Personaje Seleccionado: Mr. Biberón</p>
+                    
+                    <!-- Botón Principal: A COMERLA!! (Lleva al Juego) -->
+                    <button id="start-game-button" class="game-button px-8 py-4 text-2xl rounded-lg mt-8 w-64">
+                        ¡A COMERLA!
+                    </button>
+                    <button id="back-select-button" class="game-button px-6 py-2 text-md rounded-lg mt-4 bg-gray-600 hover:bg-gray-700 w-64">
+                        Volver al Menú
+                    </button>
+                </div>
+
+                <!-- PANTALLA 4: GAME OVER (PEDIDO DE EXPLICACIÓN) -->
+                <div id="game-over-content" class="hidden flex flex-col items-center">
+                    <h2 class="text-4xl mt-4 mb-2 font-bold text-red-500">¡PEDIDO DE EXPLICACIÓN ACTIVO!</h2>
+                    
+                    <p id="explanation-text" class="text-lg mb-4 text-gray-300">...</p>
+                    
+                    <div id="final-score-details" class="final-score-text mt-2 text-3xl font-bold text-yellow-400"></div>
+
+                    <div class="mt-4 w-full max-w-xs px-4">
+                        <label for="signature" class="block text-sm font-medium text-cyan-400 text-left">Firma/Alias (Máx 12 Caract.):</label>
+                        <input type="text" id="signature" maxlength="12" class="mt-1 block w-full px-3 py-2 border border-gray-600 bg-gray-800 text-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 text-center" placeholder="Tu Nombre de Guardián">
+                        <p id="signature-error" class="text-red-400 text-xs mt-1 hidden">El alias no puede estar vacío.</p>
+                    </div>
+                    
+                    <div class="flex space-x-4 mt-6">
+                        <button id="cut-order-button" class="game-button px-6 py-3 text-lg rounded-lg bg-gray-500 hover:bg-gray-600">
+                            ✂️ Ignorar Pedido
+                        </button>
+                        <button id="save-score-button" class="game-button px-6 py-3 text-lg rounded-lg">
+                            ✍️ Firmar y Registrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Indicador de Control Táctil (Solo para móvil) -->
+    <div class="fixed bottom-0 p-2 text-xs text-gray-400 w-full text-center sm:hidden">
+        Desliza (Swipe) Izquierda/Derecha para moverte.
+    </div>
+
+    <script type="module">
+        // --- Importaciones de Firebase ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================================================
+        // === PASO CRÍTICO: REEMPLAZA ESTOS VALORES CON TU CONFIGURACIÓN REAL DE FIREBASE =========================
+        // =========================================================================================================
+        // DEBES OBTENER ESTE OBJETO COMPLETO DE LA CONSOLA DE FIREBASE EN LA SECCIÓN DE CONFIGURACIÓN DE TU APP WEB
+        const FIREBASE_CONFIG_PLACEHOLDER = "TU_API_KEY_AQUI"; 
+
+        // ⚠️ REEMPLAZA "TU_API_KEY_AQUI" y los demás valores con los que te da Firebase ⚠️
+        const firebaseConfig = {
+            apiKey: FIREBASE_CONFIG_PLACEHOLDER, 
+            authDomain: FIREBASE_CONFIG_PLACEHOLDER,
+            projectId: FIREBASE_CONFIG_PLACEHOLDER, 
+            storageBucket: FIREBASE_CONFIG_PLACEHOLDER,
+            messagingSenderId: FIREBASE_CONFIG_PLACEHOLDER,
+            appId: FIREBASE_CONFIG_PLACEHOLDER
+        };
+        // Define un ID para la aplicación. Debe coincidir con el Project ID de Firebase.
+        const appId = "mr-biberon-final"; 
+        // =========================================================================================================
+        // === FIN DE CONFIGURACIÓN (NO MODIFICAR DE AQUÍ HACIA ABAJO) =============================================
+        // =========================================================================================================
+        
+        // --- Variables Globales y Configuración del Juego ---
+        const gameContainer = document.getElementById('game-container');
+        const scoreBar = document.getElementById('score-bar'); 
+        const player = document.getElementById('player');
+        const playerImg = document.getElementById('player-img');
+        const scoreDisplay = document.getElementById('score-display');
+        const streakDisplay = document.getElementById('streak-display');
+        const livesDisplay = document.getElementById('lives-display'); 
+        const startOverlay = document.getElementById('start-overlay');
+        
+        // Elementos del menú
+        const startContent = document.getElementById('start-content'); 
+        const newGameButton = document.getElementById('new-game-button'); 
+        const viewScoresButton = document.getElementById('view-scores-button'); 
+        const highScoresView = document.getElementById('high-scores-view'); 
+        const backScoresButton = document.getElementById('back-scores-button'); 
+        const loadingFirebase = document.getElementById('loading-firebase');
+        const highScoresList = document.getElementById('high-scores-list');
+        const userIdDisplay = document.getElementById('user-id-display');
+        
+        // Elementos del Selector de Personajes
+        const characterSelectView = document.getElementById('character-select-view'); 
+        const characterCards = document.querySelectorAll('.character-card');
+        const selectedCharName = document.getElementById('selected-char-name');
+        const startGameButton = document.getElementById('start-game-button');
+        const backSelectButton = document.getElementById('back-select-button');
+        
+        // Elementos del Game Over / Pedido de Explicación
+        const gameOverContent = document.getElementById('game-over-content'); 
+        const finalScoreDetails = document.getElementById('final-score-details');
+        const saveScoreButton = document.getElementById('save-score-button'); 
+        const cutOrderButton = document.getElementById('cut-order-button');
+        const signatureInput = document.getElementById('signature');
+        const signatureError = document.getElementById('signature-error');
+        const explanationText = document.getElementById('explanation-text'); 
+        const messageOverlay = document.getElementById('message-overlay');
+        const messageText = document.getElementById('message-text');
+
+
+        // ARRAY DE FRASES ALEATORIAS PARA GAME OVER
+        const GAME_OVER_PHRASES = [
+            "Ya no te quedan ni cardiólogos ni parientes. Se exige tu firma.",
+            "¿Cuántos corazones tenés? (Ahora cero. Se exige tu firma).",
+            "Ya no tengo más pallet y columnas quedan pocas. Se exige tu firma.",
+            "La siguiente la agarrás. (Pero ya no hay siguiente). Se exige tu firma.",
+            "Has agotado tu cuota de errores. Se exige tu firma para el registro.",
+            "Se requiere una explicación escrita sobre este rendimiento. ¡Firme aquí!"
+        ];
+        
+        // URLs de los personajes
+        const CHARACTER_URLS = {
+            'Mr. Biberón': 'https://i.postimg.cc/J0LybTSX/1760534855484.png',
+            'Mamila': 'https://i.postimg.cc/YqNSNHYx/mamila.png',
+            'Chupete': 'https://i.postimg.cc/nhTJdVdX/Chupete.png',
+            'Chupetón': 'https://i.postimg.cc/q7RdWfYZ/Chupeton.png'
+        };
+        
+        const NO_VALE_NADA_MESSAGE = "¡NO VALE NADAAAA!!!!";
+
+        // Parámetros del juego
+        const GAME_SPEED = 4; 
+        const PLAYER_SIZE = 80; 
+        const SPAWN_INTERVAL = 600; 
+        const MODE_DURATION = 10000; 
+        const MODE_STREAK_THRESHOLD = 10; 
+        const MODE_SPAWN_RATE = 100; 
+        const INVULNERABILITY_DURATION = 2000; 
+
+        // --- PARÁMETROS DE MOVIMIENTO FLUIDO ---
+        const PLAYER_SPEED_PPS = 400; 
+        const TOUCH_SENSITIVITY = 1.2; 
+        // ----------------------------------------
+        
+        // --- PARÁMETROS DEL NUEVO OBSTÁCULO HORIZONTAL ---
+        const HORIZONTAL_OBSTACLE_SCORE_START = 500; 
+        const HORIZONTAL_SPAWN_CHANCE = 0.1; 
+        const HORIZONTAL_SPEED = 150; 
+        const HORIZONTAL_Y_RANGE = [0.3, 0.7]; 
+        // --------------------------------------------------
+
+        let gameState = 'ready'; 
+        let score = 0;
+        let streak = 0;
+        let modeCombo = 0; 
+        let modeRealMultiplier = 1; 
+        let lives = 3; 
+        let isInvulnerable = false; 
+        let isModeActive = false; 
+        let modeTimerId = null; 
+        let lastTime = 0;
+        let lastSpawnTime = 0; 
+        let entities = [];
+        let entityTimer = 0; 
+        let playerX = 0; 
+        let touchStartX = 0;
+        const KEY_LEFT = 37;
+        const KEY_RIGHT = 39;
+        let containerWidth = 0;
+        let selectedCharacterURL = CHARACTER_URLS['Mr. Biberón']; 
+        
+        let keysPressed = {}; 
+
+        // --- Variables de Firebase ---
+        let db;
+        let auth;
+        let currentUserId = null;
+        let firebaseInitialized = false;
+        // La ruta pública debe coincidir con la regla de seguridad de Firestore
+        const COLLECTION_PATH = `artifacts/${appId}/public/data/high_scores`;
+
+        // --- Funciones de Firebase ---
+        
+        async function setupFirebase() {
+            // Comprobación de configuración
+            if (firebaseConfig.apiKey === FIREBASE_CONFIG_PLACEHOLDER) {
+                console.error("Firebase NO CONFIGURADO: Por favor, inserte su firebaseConfig real en index.html.");
+                loadingFirebase.innerHTML = '<span class="text-red-500 font-bold">⚠️ ERROR DE CONFIGURACIÓN:</span> <br> Reemplace los valores `TU_..._AQUI` en el código.';
+                userIdDisplay.textContent = 'ID Usuario: DESCONECTADO';
+                firebaseInitialized = false;
+                return;
+            }
+            
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                firebaseInitialized = true;
+                
+                loadingFirebase.textContent = "Autenticando...";
+                
+                // Usar signInAnonymously para la autenticación pública (Necesario para escribir en Firestore)
+                await signInAnonymously(auth);
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                        userIdDisplay.textContent = `ID Usuario: ${currentUserId.substring(0, 8)}...`;
+                        loadHighScores();
+                    } else {
+                        console.error("No se pudo obtener el UID del usuario. Usando ID anónimo generado.");
+                        currentUserId = 'anonymous-' + crypto.randomUUID(); 
+                        userIdDisplay.textContent = `ID Usuario: ${currentUserId.substring(0, 8)}... (Anónimo)`;
+                        loadingFirebase.textContent = "Error de autenticación. Sin High Scores persistentes.";
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error al configurar Firebase:", error);
+                loadingFirebase.textContent = "Error de configuración de Firebase. No hay High Scores.";
+                firebaseInitialized = false;
+            }
+        }
+
+        async function saveHighScore(finalScore, signature) {
+            if (finalScore <= 0 || !db || !currentUserId || !firebaseInitialized) {
+                console.warn("No se pudo guardar la puntuación: Firebase no inicializado o score inválido.");
+                return;
+            }
+
+            const nameToSave = signature.trim().substring(0, 12) || `Guardian-${currentUserId.substring(0, 4)}`;
+
+            try {
+                const scoresCollectionRef = collection(db, COLLECTION_PATH);
+                
+                await addDoc(scoresCollectionRef, {
+                    score: finalScore,
+                    name: nameToSave, 
+                    userId: currentUserId,
+                    timestamp: serverTimestamp() 
+                });
+                console.log("Puntuación guardada con éxito.");
+            } catch (error) {
+                console.error("Error guardando High Score (Verifica tus reglas de seguridad):", error);
+            }
+        }
+
+        function loadHighScores() {
+            if (!db || !firebaseInitialized) {
+                loadingFirebase.textContent = "Carga de puntuaciones detenida (Firebase no inicializado).";
+                return;
+            }
+
+            const scoresCollectionRef = collection(db, COLLECTION_PATH);
+            const scoresQuery = query(scoresCollectionRef); 
+
+            // Mostrar el spinner de carga al inicio de la carga
+            highScoresList.innerHTML = '<p class="text-gray-400 text-center">Cargando TOP 5...</p>';
+
+            // onSnapshot para obtener datos en tiempo real (Realtime updates)
+            const unsubscribe = onSnapshot(scoresQuery, (snapshot) => {
+                loadingFirebase.classList.add('hidden');
+                
+                let scores = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    scores.push({
+                        id: doc.id,
+                        score: data.score || 0,
+                        name: data.name || `Guardian-${data.userId.substring(0, 4)}`, 
+                        userId: data.userId,
+                        // Firestore puede tardar en asignar el timestamp, usamos la fecha actual como fallback
+                        timestamp: data.timestamp ? data.timestamp.toDate() : new Date() 
+                    });
+                });
+                
+                // Ordenar por score de mayor a menor y por timestamp para desempate
+                scores.sort((a, b) => {
+                    if (b.score !== a.score) {
+                        return b.score - a.score; // Mayor score primero
+                    }
+                    // Si los scores son iguales, el más antiguo primero
+                    return a.timestamp - b.timestamp; 
+                });
+                renderHighScores(scores.slice(0, 5)); 
+            }, (error) => {
+                console.error("Error al obtener High Scores (Verifica tus reglas de seguridad):", error);
+                loadingFirebase.innerHTML = '<span class="text-red-500 font-bold">ERROR DE LECTURA:</span> <br> Verifica las Reglas de Firestore.';
+                highScoresList.innerHTML = '<p class="text-red-400 text-center">Error al cargar el TOP 5.</p>';
+            });
+            
+            // Retornar la función de desuscripción para limpieza (aunque no la usamos en este ejemplo, es buena práctica)
+            return unsubscribe;
+        }
+
+        function renderHighScores(scores) {
+            highScoresList.innerHTML = '';
+            
+            if (scores.length === 0) {
+                highScoresList.innerHTML = '<p class="text-gray-400 text-center">Sé el primero en el TOP 5!</p>';
+                return;
+            }
+
+            scores.forEach((item, index) => {
+                const scoreItem = document.createElement('div');
+                scoreItem.classList.add('score-item', 'shadow-lg');
+
+                let prefix = `${index + 1}.`;
+                if (index === 0) prefix = '🥇';
+                else if (index === 1) prefix = '🥈';
+                else if (index === 2) prefix = '🥉';
+
+                scoreItem.innerHTML = `
+                    <span class="text-cyan-300 mr-2">${prefix}</span>
+                    <span class="name">${item.name}</span>
+                    <span class="value">${item.score}</span>
+                `;
+                highScoresList.appendChild(scoreItem);
+            });
+        }
+
+
+        // --- Funciones de Gestión de Vistas (PANTALLAS) ---
+        
+        function hideAllViews() {
+            startContent.classList.add('hidden');
+            gameOverContent.classList.add('hidden');
+            highScoresView.classList.add('hidden');
+            characterSelectView.classList.add('hidden');
+            
+            scoreBar.classList.add('hidden');
+            player.classList.add('hidden');
+            startOverlay.style.display = 'flex'; 
+        }
+
+        function showStartMenu() {
+            hideAllViews();
+            startContent.classList.remove('hidden');
+            gameState = 'ready'; 
+            signatureInput.value = ''; 
+            signatureError.classList.add('hidden');
+            // Asegurarse de que el mensaje de Firebase sea visible si hay error
+            if (!firebaseInitialized || firebaseConfig.apiKey === FIREBASE_CONFIG_PLACEHOLDER) {
+                 loadingFirebase.classList.remove('hidden');
+                 loadingFirebase.innerHTML = '<span class="text-red-500 font-bold">// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyD6Bvf5ehRKgVVFqxOSua6enpzp9brldBg",
+  authDomain: "mr-biberon.firebaseapp.com",
+  projectId: "mr-biberon",
+  storageBucket: "mr-biberon.firebasestorage.app",
+  messagingSenderId: "531621873843",
+  appId: "1:531621873843:web:15afbdb36313a09e3b08c6",
+                 loadingFirebase.classList.add('hidden');
+            }
+        }
+
+        function showScoresView() {
+            hideAllViews();
+            highScoresView.classList.remove('hidden');
+            // Recargar puntuaciones si Firebase está listo
+            if (firebaseInitialized) {
+                loadHighScores();
+            } else {
+                highScoresList.innerHTML = '<p class="text-red-400 text-center">Conéctate a Firebase para ver el TOP 5.</p>';
+            }
+        }
+
+        function showCharacterSelectView() {
+             hideAllViews();
+             characterSelectView.classList.remove('hidden');
+        }
+        
+        function showGameOverView() {
+            hideAllViews();
+            gameOverContent.classList.remove('hidden');
+            
+            const randomIndex = Math.floor(Math.random() * GAME_OVER_PHRASES.length);
+            explanationText.textContent = GAME_OVER_PHRASES[randomIndex];
+            finalScoreDetails.textContent = `Puntuación Final: ${score}`;
+        }
+
+
+        function initializeGame() {
+            hideAllViews(); 
+            startOverlay.style.display = 'none'; 
+            
+            scoreBar.classList.remove('hidden');
+            player.classList.remove('hidden');
+
+            playerImg.src = selectedCharacterURL; 
+
+            if (modeTimerId) clearTimeout(modeTimerId); 
+            isModeActive = false;
+            modeCombo = 0; 
+            modeRealMultiplier = 1; 
+            gameContainer.classList.remove('no-vale-nada-active');
+
+            entities.forEach(entity => entity.element.remove());
+            entities = [];
+
+            score = 0;
+            streak = 0;
+            lives = 3; 
+            isInvulnerable = false;
+            keysPressed = {}; 
+            
+            scoreDisplay.textContent = score;
+            streakDisplay.textContent = streak;
+            updateLivesDisplay(); 
+            messageOverlay.style.opacity = '0';
+            
+            setupGameDimensions();
+
+            playerX = containerWidth / 2;
+            player.classList.remove('opacity-50', 'transition-opacity'); 
+            player.style.left = `${playerX - PLAYER_SIZE / 2}px`;
+            
+            gameState = 'playing';
+            lastTime = performance.now();
+            lastSpawnTime = lastTime; 
+            entityTimer = 0;
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function endGame() {
+            gameState = 'over';
+            
+            if (modeTimerId) clearTimeout(modeTimerId); 
+            isModeActive = false;
+            modeCombo = 0;
+            modeRealMultiplier = 1;
+            gameContainer.classList.remove('no-vale-nada-active');
+            
+            showGameOverView(); 
+        }
+        
+        // --- Lógica del Juego (Solo se incluyen las partes que interactúan con las vidas/score) ---
+
+        function updateLivesDisplay() {
+            livesDisplay.textContent = '📦'.repeat(lives);
+            if (lives === 1) {
+                livesDisplay.classList.add('animate-pulse');
+            } else {
+                livesDisplay.classList.remove('animate-pulse');
+            }
+        }
+
+        function startNoValeNadaMode() {
+            if (isModeActive) return; 
+            isModeActive = true;
+            streak = 0; 
+            modeCombo = 1; 
+            modeRealMultiplier = 1;
+            streakDisplay.textContent = streak;
+            gameContainer.classList.add('no-vale-nada-active');
+            showMessage(NO_VALE_NADA_MESSAGE, "no-vale-nada-text");
+            lastSpawnTime = performance.now(); 
+            modeTimerId = setTimeout(endNoValeNadaMode, MODE_DURATION);
+        }
+
+        function endNoValeNadaMode() {
+            isModeActive = false;
+            modeCombo = 0;
+            modeRealMultiplier = 1;
+            gameContainer.classList.remove('no-vale-nada-active');
+            if (modeTimerId) clearTimeout(modeTimerId);
+            modeTimerId = null;
+            entityTimer = 0; 
+            showMessage("Fin del Modo", "mamadera-text");
+        }
+
+        function showMessage(text, className) {
+            messageText.textContent = text;
+            messageText.className = `message-text ${className}`;
+            messageOverlay.style.opacity = '1';
+            messageOverlay.style.transform = 'translate(-50%, 0) scale(1.1)'; 
+            setTimeout(() => {
+                messageOverlay.style.opacity = '0';
+                messageOverlay.style.transform = 'translate(-50%, 0) scale(1)';
+            }, 800);
+        }
+
+        function spawnEntity() {
+            const ENTITY_VISUAL_SIZE = 40;
+            
+            let entityType;
+            let emoji;
+            let entityX;
+            let entityY;
+            let isHorizontal = false;
+            let direction = 0;
+
+            if (score >= HORIZONTAL_OBSTACLE_SCORE_START && Math.random() < HORIZONTAL_SPAWN_CHANCE && !isModeActive) {
+                isHorizontal = true;
+                entityType = 'horizontal_bomb';
+                emoji = '💣';
+                
+                direction = Math.random() < 0.5 ? 1 : -1;
+                
+                entityX = direction === 1 ? -ENTITY_VISUAL_SIZE : containerWidth + ENTITY_VISUAL_SIZE;
+                
+                const minH = gameContainer.offsetHeight * HORIZONTAL_Y_RANGE[0];
+                const maxH = gameContainer.offsetHeight * HORIZONTAL_Y_RANGE[1];
+                entityY = minH + Math.random() * (maxH - minH);
+
+            } else {
+                let isBottle = true; 
+                if (!isModeActive) { isBottle = Math.random() > 0.3; } 
+                entityType = isBottle ? 'bottle' : 'obstacle';
+                emoji = isBottle ? '🍼' : '💥';
+                
+                entityX = Math.random() * (containerWidth - ENTITY_VISUAL_SIZE) + ENTITY_VISUAL_SIZE / 2;
+                entityY = 0; 
+            }
+            
+            const entityElement = document.createElement('div');
+            entityElement.classList.add('entity');
+            entityElement.textContent = emoji;
+            gameContainer.appendChild(entityElement);
+
+            entityElement.style.transform = `translateX(${entityX - ENTITY_VISUAL_SIZE / 2}px) translateY(${entityY}px) translateZ(0)`;
+
+            entities.push({
+                element: entityElement,
+                type: entityType,
+                x: entityX, 
+                y: entityY, 
+                width: ENTITY_VISUAL_SIZE, 
+                height: ENTITY_VISUAL_SIZE,
+                removed: false,
+                
+                isHorizontal: isHorizontal,
+                direction: direction, 
+            });
+        }
+        
+        function checkCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect2.height > rect2.y;
+        }
+
+
+        function gameLoop(currentTime) {
+            if (gameState !== 'playing') return;
+
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            
+            const MODE_SCORE_MULTIPLIER = 1; 
+            const MODE_MAX_MULTIPLIER = 4;
+            
+            // --- Lógica de Movimiento Continuo del Jugador (Teclado) ---
+            let playerMovementDelta = 0;
+            if (keysPressed[KEY_LEFT]) {
+                playerMovementDelta -= PLAYER_SPEED_PPS * deltaTime;
+            }
+            if (keysPressed[KEY_RIGHT]) {
+                playerMovementDelta += PLAYER_SPEED_PPS * deltaTime;
+            }
+
+            if (playerMovementDelta !== 0) {
+                movePlayer(playerMovementDelta); 
+            }
+            // ------------------------------------------------------------------
+
+            // Lógica de aparición
+            if (!isModeActive) {
+                entityTimer += deltaTime * 1000;
+                const spawnRate = SPAWN_INTERVAL * (1 / (1 + score / 50)); 
+                if (entityTimer > spawnRate) { 
+                    spawnEntity();
+                    entityTimer = 0;
+                }
+            } else {
+                 if (currentTime - lastSpawnTime > MODE_SPAWN_RATE) {
+                     spawnEntity();
+                     lastSpawnTime = currentTime;
+                 }
+            }
+
+            if (!isModeActive && streak >= MODE_STREAK_THRESHOLD) {
+                startNoValeNadaMode();
+            }
+
+            const PLAYER_HITBOX_FACTOR = 0.30;
+            const ENTITY_HITBOX_FACTOR = 1.5;
+            const ENTITY_VISUAL_SIZE = 40;
+            
+            const playerHitboxSize = PLAYER_SIZE * PLAYER_HITBOX_FACTOR;
+            const playerBottom = gameContainer.offsetHeight * 0.05;
+            const playerTop = gameContainer.offsetHeight - playerBottom - PLAYER_SIZE;
+
+            const playerRect = {
+                x: playerX - playerHitboxSize / 2, 
+                y: playerTop + (PLAYER_SIZE - playerHitboxSize) / 2, 
+                width: playerHitboxSize,
+                height: playerHitboxSize
+            };
+            
+            // Movimiento de Entidades
+            const calculatedSpeed = GAME_SPEED + Math.log(score + 1) * 0.5;
+            const fallSpeed = calculatedSpeed * 100 * deltaTime; 
+            const gameHeight = gameContainer.offsetHeight;
+
+            for (let i = entities.length - 1; i >= 0; i--) {
+                const entity = entities[i];
+                if (entity.removed) continue;
+                
+                if (entity.isHorizontal) {
+                    entity.x += entity.direction * HORIZONTAL_SPEED * deltaTime;
+
+                    if (entity.direction === 1 && entity.x > containerWidth - ENTITY_VISUAL_SIZE / 2) {
+                        entity.direction = -1;
+                    } else if (entity.direction === -1 && entity.x < ENTITY_VISUAL_SIZE / 2) {
+                        entity.direction = 1;
+                    }
+                    
+                    entity.element.style.transform = `translateX(${entity.x - ENTITY_VISUAL_SIZE/2}px) translateY(${entity.y}px) translateZ(0)`;
+
+                } else {
+                    entity.y += fallSpeed; 
+                    entity.element.style.transform = `translateX(${entity.x - ENTITY_VISUAL_SIZE/2}px) translateY(${entity.y}px) translateZ(0)`;
+                }
+                
+                const entityHitboxSize = ENTITY_VISUAL_SIZE * ENTITY_HITBOX_FACTOR;
+                const entityRect = {
+                    x: entity.x - entityHitboxSize / 2,
+                    y: entity.y - entityHitboxSize / 2, 
+                    width: entityHitboxSize,
+                    height: entityHitboxSize
+                };
+
+                // Colisión
+                if (checkCollision(playerRect, entityRect)) {
+                    entity.removed = true;
+                    entity.element.remove();
+                    
+                    if (entity.type === 'bottle') {
+                        
+                        if (isModeActive) {
+                            modeCombo++;
+                            modeRealMultiplier = Math.min(modeCombo, MODE_MAX_MULTIPLIER);
+                            
+                            let points = MODE_SCORE_MULTIPLIER * modeRealMultiplier;
+                            score += points;
+                            scoreDisplay.textContent = score;
+
+                            showMessage(`¡Combo!! x${modeCombo}`, "no-vale-nada-text");
+                            
+                        } else {
+                            score += MODE_SCORE_MULTIPLIER;
+                            scoreDisplay.textContent = score;
+                            streak++;
+                            streakDisplay.textContent = streak;
+                            showMessage("¡Mamadera!!", "mamadera-text");
+                        }
+
+
+                    } else if (entity.type === 'obstacle' || entity.type === 'horizontal_bomb') {
+                        if (isModeActive) {
+                             modeCombo = 0;
+                             modeRealMultiplier = 1;
+                             showMessage("¡Esquivado por el No Vale Nada! 😎", "no-vale-nada-text");
+                        }
+                        
+                        if (!isInvulnerable && !isModeActive) {
+                            lives--;
+                            updateLivesDisplay();
+                            showMessage(entity.type === 'horizontal_bomb' ? "¡BUM! 💥" : "¡EPA! 💥", "mamadera-text"); 
+                            
+                            streak = 0;
+                            streakDisplay.textContent = streak;
+
+                            if (lives <= 0) {
+                                endGame(); 
+                                return; 
+                            } else {
+                                isInvulnerable = true;
+                                player.classList.add('opacity-50', 'transition-opacity');
+                                setTimeout(() => {
+                                    isInvulnerable = false;
+                                    player.classList.remove('opacity-50', 'transition-opacity');
+                                }, INVULNERABILITY_DURATION); 
+                            }
+                        }
+                        
+                    }
+                }
+
+                // Limpieza de entidades
+                if (!entity.isHorizontal && entity.y > gameHeight) {
+                    if (entity.type === 'bottle' && !entity.removed) {
+                        streak = 0;
+                        streakDisplay.textContent = streak;
+                        
+                        if (isModeActive) {
+                            modeCombo = 0;
+                            modeRealMultiplier = 1;
+                        }
+                    }
+                    entity.element.remove();
+                    entities.splice(i, 1); 
+                }
+                
+                if (entity.isHorizontal && (entity.x < -ENTITY_VISUAL_SIZE * 2 || entity.x > containerWidth + ENTITY_VISUAL_SIZE * 2)) {
+                    entity.element.remove();
+                    entities.splice(i, 1);
+                }
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Controles del Jugador (MOVIMIENTO FLUIDO) ---
+        
+        function movePlayer(deltaX) {
+            playerX += deltaX;
+
+            const minLeft = PLAYER_SIZE / 2;
+            const maxLeft = containerWidth - PLAYER_SIZE / 2;
+
+            if (playerX < minLeft) playerX = minLeft;
+            if (playerX > maxLeft) playerX = maxLeft;
+
+            player.style.left = `${playerX - PLAYER_SIZE / 2}px`;
+        }
+
+        // El keydown/keyup solo establece un flag 
+        document.addEventListener('keydown', (e) => {
+            if (gameState === 'playing') {
+                keysPressed[e.keyCode] = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (gameState === 'playing') {
+                keysPressed[e.keyCode] = false;
+            }
+        });
+
+        // Eventos táctiles (Móvil)
+        gameContainer.addEventListener('touchstart', (e) => {
+            if (gameState === 'playing') {
+                touchStartX = e.touches[0].clientX;
+            }
+        });
+
+        gameContainer.addEventListener('touchmove', (e) => {
+            if (gameState === 'playing') {
+                e.preventDefault(); 
+                const currentX = e.touches[0].clientX;
+                const deltaX = currentX - touchStartX;
+                movePlayer(deltaX * TOUCH_SENSITIVITY); 
+                touchStartX = currentX; 
+            }
+        });
+        
+        function setupGameDimensions() {
+             const gameBounds = gameContainer.getBoundingClientRect();
+             containerWidth = gameBounds.width;
+             
+             if (gameState === 'ready' || gameState === 'over') {
+                 playerX = containerWidth / 2;
+                 player.style.left = `${playerX - PLAYER_SIZE / 2}px`;
+             }
+        }
+
+        // --- Manejo de la Selección de Personaje ---
+        characterCards.forEach(card => {
+            card.addEventListener('click', () => {
+                characterCards.forEach(c => c.classList.remove('selected'));
+                
+                card.classList.add('selected');
+                
+                selectedCharacterURL = card.dataset.url;
+                selectedCharName.textContent = `Personaje Seleccionado: ${card.dataset.name}`;
+            });
+        });
+
+
+        // --- Event listeners para la navegación entre PANTALLAS ---
+        
+        newGameButton.addEventListener('click', showCharacterSelectView);
+        viewScoresButton.addEventListener('click', showScoresView);
+        backScoresButton.addEventListener('click', showStartMenu);
+        startGameButton.addEventListener('click', initializeGame);
+        backSelectButton.addEventListener('click', showStartMenu);
+        
+        saveScoreButton.addEventListener('click', () => {
+            const signature = signatureInput.value.trim();
+            if (signature === '') {
+                signatureError.classList.remove('hidden');
+                return;
+            }
+            signatureError.classList.add('hidden');
+            // Solo intentar guardar si Firebase está configurado correctamente
+            if (firebaseInitialized && firebaseConfig.apiKey !== FIREBASE_CONFIG_PLACEHOLDER) {
+                saveHighScore(score, signature);
+            } else {
+                console.warn("No se guardó el score: Firebase no está configurado.");
+            }
+            showStartMenu(); 
+        });
+
+        cutOrderButton.addEventListener('click', showStartMenu);
+
+
+        window.onload = function() {
+             setupGameDimensions();
+             window.addEventListener('resize', setupGameDimensions);
+             
+             setupFirebase(); 
+             
+             showStartMenu(); 
+             playerImg.src = selectedCharacterURL; 
+        }
+
+    </script>
+</body>
+</html>
